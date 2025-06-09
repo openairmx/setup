@@ -1,0 +1,83 @@
+<html>
+    <head>
+        <title>Setup AIRMX device</title>
+    </head>
+    <body>
+        <h1>Setup your AIRMX device</h1>
+        <div>
+            <button id="connect" type="button">
+                Connect
+            </button>
+        </div>
+        <script>
+            const DEVICE_NAME = 'AIRMX Pro'
+            const MAIN_SERVICE_UUID = '22210000-554a-4546-5542-46534450464d'
+            const WRITE_CHAR_UUID = '22210001-554a-4546-5542-46534450464d'
+            const NOTIFY_CHAR_UUID = '22210002-554a-4546-5542-46534450464d'
+
+            async function delay(ms) {
+                return new Promise(resolve => setTimeout(resolve, ms))
+            }
+
+            async function connectToDevice() {
+                const device = await navigator.bluetooth.requestDevice({
+                    filters: [
+                        { name: DEVICE_NAME }
+                    ],
+                    optionalServices: [MAIN_SERVICE_UUID]
+                })
+
+                const server = await device.gatt.connect()
+                const service = await server.getPrimaryService(MAIN_SERVICE_UUID)
+
+                const writeChar = await service.getCharacteristic(WRITE_CHAR_UUID)
+                const notifyChar = await service.getCharacteristic(NOTIFY_CHAR_UUID)
+
+                // 1. Enable notifications
+                await notifyChar.startNotifications()
+                notifyChar.addEventListener('characteristicvaluechanged', handleDeviceResponse)
+
+                await delay(500)
+
+                // 2. Send the first bind command
+                await sendBindCommand(writeChar)
+            }
+
+            function handleDeviceResponse(event) {
+                const value = event.target.value
+                const receivedBytes = []
+                for (let i = 0; i < value.byteLength; i++) {
+                    receivedBytes.push(value.getUint8(i).toString(16).padStart(2, '0'))
+                }
+                console.log(`Received data from device: ${receivedBytes.join(' ')}`)
+            }
+
+            async function sendBindCommand(writeChar) {
+                const commandId = 17
+                const subCommandId = 1
+                const dummyToken = '0000000000000000'
+                const encoder = new TextEncoder()
+                const tokenBytes = encoder.encode(dummyToken)
+
+                const buffer = new Uint8Array(18)
+                buffer[0] = commandId
+                buffer[1] = subCommandId
+                buffer.set(tokenBytes, 2)
+
+                await sendRawData(writeChar, buffer)
+            }
+
+            async function sendRawData(characteristic, data) {
+                const chunkSize = 20
+                for (let i = 0; i < data.length; i += chunkSize) {
+                    const chunk = data.slice(i, i + chunkSize)
+                    console.log(`Sending chunk: ${Array.from(chunk).map(b => b.toString(16).padStart(2, '0')).join(' ')}`)
+                    await characteristic.writeValueWithResponse(chunk)
+                }
+            }
+
+            const connect = document.getElementById('connect')
+            connect.addEventListener('click', connectToDevice)
+        </script>
+    </body>
+</html>
