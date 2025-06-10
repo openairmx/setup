@@ -41,6 +41,13 @@
 
                 // 2. Send the first bind command
                 await sendBindCommand(writeChar)
+                await delay(500)
+
+                // 3. Send Wi-Fi credentials
+                const ssid = '<yourssid>'
+                const password = '<yourpassword>'
+                await sendWifiCredentialsCommand(writeChar, ssid, password)
+                await delay(500)
             }
 
             function handleDeviceResponse(event) {
@@ -68,6 +75,56 @@
                 ])
 
                 await sendRawData(writeChar, handshakePacket)
+            }
+
+            async function sendWifiCredentialsCommand(writeChar, ssid, password) {
+                const encoder = new TextEncoder()
+                const ssidBytes = encoder.encode(ssid)
+                const passwordBytes = encoder.encode(password)
+
+                const ssidLenSize = 1
+                const ssidSize = ssidBytes.length
+                const passwordLenSize = 1
+                const passwordSize = passwordBytes.length
+                const plaintextPayload = new Uint8Array(ssidLenSize + ssidSize + passwordLenSize + passwordSize)
+
+                let offset = 0
+
+                plaintextPayload[offset] = ssidSize
+                offset++
+
+                plaintextPayload.set(ssidBytes, offset)
+                offset += ssidSize
+
+                plaintextPayload[offset] = passwordSize
+                offset++
+
+                plaintextPayload.set(passwordBytes, offset)
+
+                const packet1 = new Uint8Array([
+                    // Header (4 bytes)
+                    0x02, // Sequence Number: 2
+                    0x12, // Packet Info: (Packet 1 of 2)
+                    0x00, // Command ID: 21, Enc-Flag: 0 (Big Endian)
+                    0x15,
+                    ...plaintextPayload.slice(0, 16)
+                ])
+
+                const packet2 = new Uint8Array([
+                    // Header (4 bytes)
+                    0x03, // Sequence Number: 3
+                    0x22, // Packet Info: (Packet 2 of 2)
+                    0x00, // Command ID: 21, Enc-Flag: 0 (Big Endian)
+                    0x15,
+                    ...plaintextPayload.slice(16)
+                ])
+
+                console.log('Sending Wi-Fi credentials packet 1/2...')
+                await sendRawData(writeChar, packet1)
+                await delay(100)
+
+                console.log('Sending Wi-Fi credentials packet 2/2...')
+                await sendRawData(writeChar, packet2)
             }
 
             async function sendRawData(characteristic, data) {
