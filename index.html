@@ -53,18 +53,21 @@
             }
 
             async function sendBindCommand(writeChar) {
-                const commandId = 17
-                const subCommandId = 1
-                const dummyToken = '0000000000000000'
-                const encoder = new TextEncoder()
-                const tokenBytes = encoder.encode(dummyToken)
+                const handshakePacket = new Uint8Array([
+                    // --- 4-byte Header ---
+                    0x01, // Sequence Number: 1
+                    0x11, // Packet Info: (Packet 1 of 1)
+                    0x00, // Command ID: 11 (Big Endian Short, MSB)
+                    0x0B, // Command ID: 11 (Big Endian Short, LSB)
 
-                const buffer = new Uint8Array(18)
-                buffer[0] = commandId
-                buffer[1] = subCommandId
-                buffer.set(tokenBytes, 2)
+                    // --- 15-byte Payload ---
+                    0x08, // Hardcoded first byte of payload
+                    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // Token (as 0L)
+                    0x05, // Length of version string "1.0.0"
+                    0x31, 0x2e, 0x30, 0x2e, 0x30  // ASCII for "1.0.0"
+                ])
 
-                await sendRawData(writeChar, buffer)
+                await sendRawData(writeChar, handshakePacket)
             }
 
             async function sendRawData(characteristic, data) {
