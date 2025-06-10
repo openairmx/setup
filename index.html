@@ -48,6 +48,9 @@
                 const password = '<yourpassword>'
                 await sendWifiCredentialsCommand(writeChar, ssid, password)
                 await delay(500)
+
+                // 4. Retrieve device ID
+                await sendRequestDeviceIdentityCommand(writeChar)
             }
 
             function handleDeviceResponse(event) {
@@ -125,6 +128,18 @@
 
                 console.log('Sending Wi-Fi credentials packet 2/2...')
                 await sendRawData(writeChar, packet2)
+            }
+
+            async function sendRequestDeviceIdentityCommand(writeChar) {
+                const packet = new Uint8Array([
+                    // Header (4 bytes)
+                    0x04, // Sequence Number: 4
+                    0x11, // Packet Info: (Packet 1 of 1)
+                    0x00, // Command ID: 22, Enc-Flag: 0 (Big Endian)
+                    0x16
+                ])
+
+                await sendRawData(writeChar, packet)
             }
 
             async function sendRawData(characteristic, data) {
