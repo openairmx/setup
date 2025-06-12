@@ -1,7 +1,41 @@
-const DEVICE_NAME = 'AIRMX Pro'
-const MAIN_SERVICE_UUID = '22210000-554a-4546-5542-46534450464d'
-const WRITE_CHAR_UUID = '22210001-554a-4546-5542-46534450464d'
-const NOTIFY_CHAR_UUID = '22210002-554a-4546-5542-46534450464d'
+class Device {
+    #deviceName
+    #primaryServiceUuid
+    #writeCharacteristicUuid
+    #notifyCharacteristicUuid
+
+    constructor(deviceName, primaryServiceUuid, writeCharacteristicUuid, notifyCharacteristicUuid) {
+        this.#deviceName = deviceName
+        this.#primaryServiceUuid = primaryServiceUuid
+        this.#writeCharacteristicUuid = writeCharacteristicUuid
+        this.#notifyCharacteristicUuid = notifyCharacteristicUuid
+    }
+
+    static airmxPro() {
+        return new Device(
+            'AIRMX Pro',
+            '22210000-554a-4546-5542-46534450464d',
+            '22210001-554a-4546-5542-46534450464d',
+            '22210002-554a-4546-5542-46534450464d'
+        )
+    }
+
+    get name() {
+        return this.#deviceName
+    }
+
+    get primaryServiceUuid() {
+        return this.#primaryServiceUuid
+    }
+
+    get writeCharacteristicUuid() {
+        return this.#writeCharacteristicUuid
+    }
+
+    get notifyCharacteristicUuid() {
+        return this.#notifyCharacteristicUuid
+    }
+}
 
 class Dispatcher {
     #characteristic
@@ -139,7 +173,7 @@ async function delay(ms) {
     return new Promise(resolve => setTimeout(resolve, ms))
 }
 
-async function connectToDevice() {
+async function connect() {
     const ssid = document.getElementById('ssid')
     const password = document.getElementById('password')
 
@@ -147,23 +181,29 @@ async function connectToDevice() {
         return
     }
 
-    const device = await navigator.bluetooth.requestDevice({
-        filters: [{ name: DEVICE_NAME }],
-        optionalServices: [MAIN_SERVICE_UUID]
+    const device = Device.airmxPro()
+    const wifiCredentials = { ssid: ssid.value, password: password.value }
+    await connectToDevice(device, wifiCredentials)
+}
+
+async function connectToDevice(device, wifiCredentials) {
+    const bluetoothDevice = await navigator.bluetooth.requestDevice({
+        filters: [{ name: device.name }],
+        optionalServices: [device.primaryServiceUuid]
     })
 
-    const server = await device.gatt.connect()
-    const service = await server.getPrimaryService(MAIN_SERVICE_UUID)
+    const server = await bluetoothDevice.gatt.connect()
+    const service = await server.getPrimaryService(device.primaryServiceUuid)
 
-    const writeChar = await service.getCharacteristic(WRITE_CHAR_UUID)
-    const notifyChar = await service.getCharacteristic(NOTIFY_CHAR_UUID)
+    const writeCharacteristic = await service.getCharacteristic(device.writeCharacteristicUuid)
+    const notifyCharacteristic = await service.getCharacteristic(device.notifyCharacteristicUuid)
 
-    await notifyChar.startNotifications()
-    notifyChar.addEventListener('characteristicvaluechanged', handleDeviceResponse)
+    await notifyCharacteristic.startNotifications()
+    notifyCharacteristic.addEventListener('characteristicvaluechanged', handleDeviceResponse)
 
-    const dispatcher = new Dispatcher(writeChar)
+    const dispatcher = new Dispatcher(writeCharacteristic)
     await dispatcher.dispatch(new HandshakeCommand())
-    await dispatcher.dispatch(new ConfigureWifiCommand(ssid.value, password.value))
+    await dispatcher.dispatch(new ConfigureWifiCommand(wifiCredentials.ssid, wifiCredentials.password))
     await dispatcher.dispatch(new RequestIdentityCommand())
 }
 
@@ -176,5 +216,5 @@ function handleDeviceResponse(event) {
     console.log(`Received data from device: ${receivedBytes.join(' ')}`)
 }
 
-const connect = document.getElementById('connect')
-connect.addEventListener('click', connectToDevice)
+const button = document.getElementById('connect')
+button.addEventListener('click', connect)
