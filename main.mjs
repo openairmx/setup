@@ -140,6 +140,13 @@ async function delay(ms) {
 }
 
 async function connectToDevice() {
+    const ssid = document.getElementById('ssid')
+    const password = document.getElementById('password')
+
+    if (ssid.value === '' || password.value === '') {
+        return
+    }
+
     const device = await navigator.bluetooth.requestDevice({
         filters: [{ name: DEVICE_NAME }],
         optionalServices: [MAIN_SERVICE_UUID]
@@ -156,7 +163,7 @@ async function connectToDevice() {
 
     const dispatcher = new Dispatcher(writeChar)
     await dispatcher.dispatch(new HandshakeCommand())
-    await dispatcher.dispatch(new ConfigureWifiCommand('<ssid>', '<password>'))
+    await dispatcher.dispatch(new ConfigureWifiCommand(ssid.value, password.value))
     await dispatcher.dispatch(new RequestIdentityCommand())
 }
 
