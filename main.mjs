@@ -216,5 +216,14 @@ function handleDeviceResponse(event) {
     console.log(`Received data from device: ${receivedBytes.join(' ')}`)
 }
 
-const button = document.getElementById('connect')
-button.addEventListener('click', connect)
+function supportBluetoothApi() {
+    return 'bluetooth' in navigator
+}
+
+if (! supportBluetoothApi()) {
+    const unsupportedMessage = document.getElementById('unsupported-message')
+    unsupportedMessage.style.display = 'block'
+
+    const main = document.querySelector('main')
+    main.style.display = 'none'
+}
