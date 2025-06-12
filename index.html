@@ -15,15 +15,145 @@
             const WRITE_CHAR_UUID = '22210001-554a-4546-5542-46534450464d'
             const NOTIFY_CHAR_UUID = '22210002-554a-4546-5542-46534450464d'
 
+            class Dispatcher {
+                #characteristic
+                #sequenceNumber = 1
+                #chunkSize = 16
+
+                constructor(characteristic) {
+                    this.#characteristic = characteristic
+                }
+
+                async dispatch(command) {
+                    const data = this.#chunk(command.payload, command)
+
+                    for (let chunk of data) {
+                        console.log(`Sending chunk: ${Array.from(chunk).map(b => b.toString(16).padStart(2, '0')).join(' ')}`)
+                        await this.#characteristic.writeValueWithResponse(chunk)
+                        await delay(500)
+                    }
+                }
+
+                #chunk(data, command) {
+                    const packets = this.#chunked(data, this.#chunkSize)
+                    const total = packets.length
+
+                    if (total === 0) {
+                        return [
+                            this.#packetHeader(
+                                this.#sequenceNumber++, 1, 1, // 1 of 1 packet
+                                command.commandId
+                            )
+                        ]
+                    }
+
+                    return packets.map((chunk, index) => {
+                        return new Uint8Array([
+                            ...this.#packetHeader(
+                                this.#sequenceNumber++, index + 1, total,
+                                command.commandId
+                            ),
+                            ...chunk
+                        ])
+                    })
+                }
+
+                /**
+                 * Splits an array into chunks of `size`.
+                 *
+                 * @param {Uint8Array} data - The array of 8-bit unsigned integers.
+                 * @param {number} size - The size of each chunk.
+                 */
+                #chunked(data, size) {
+                    const packets = []
+
+                    for (let i = 0; i < data.length; i += size) {
+                        packets.push(data.slice(i, i + size))
+                    }
+
+                    return packets
+                }
+
+                #packetHeader(sequenceNumber, currentPacket, totalPacket, commandId) {
+                    return new Uint8Array([
+                        sequenceNumber,
+                        currentPacket << 4 | totalPacket,
+                        0x00, // Unencrypted flag
+                        commandId
+                    ])
+                }
+            }
+
+            class Command {
+                get commandId() {
+                    throw new Error('The command ID does not exist.')
+                }
+
+                get payload() {
+                    throw new Error('The payload does not exist.')
+                }
+            }
+
+            class HandshakeCommand extends Command {
+                get commandId() {
+                    return 0x0b
+                }
+
+                get payload() {
+                    return new Uint8Array([
+                        0x08, // The storage size of the token
+                        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // Token: 0
+                        0x05, // The length of the version
+                        0x31, 0x2e, 0x30, 0x2e, 0x30 // Version: 1.0.0
+                    ])
+                }
+            }
+
+            class ConfigureWifiCommand extends Command {
+                #ssid
+                #password
+
+                constructor(ssid, password) {
+                    super()
+                    this.#ssid = ssid
+                    this.#password = password
+                }
+
+                get commandId() {
+                    return 0x15
+                }
+
+                get payload() {
+                    const encoder = new TextEncoder()
+                    const ssid = encoder.encode(this.#ssid)
+                    const password = encoder.encode(this.#password)
+
+                    return new Uint8Array([
+                        ssid.length, ...ssid,
+                        password.length, ...password
+                    ])
+                }
+            }
+
+            class RequestIdentityCommand extends Command {
+                get commandId() {
+                    return 0x16
+                }
+
+                get payload() {
+                    return new Uint8Array([
+                        //
+                    ])
+                }
+            }
+
             async function delay(ms) {
                 return new Promise(resolve => setTimeout(resolve, ms))
             }
 
             async function connectToDevice() {
                 const device = await navigator.bluetooth.requestDevice({
-                    filters: [
-                        { name: DEVICE_NAME }
-                    ],
+                    filters: [{ name: DEVICE_NAME }],
                     optionalServices: [MAIN_SERVICE_UUID]
                 })
 
@@ -33,24 +163,13 @@
                 const writeChar = await service.getCharacteristic(WRITE_CHAR_UUID)
                 const notifyChar = await service.getCharacteristic(NOTIFY_CHAR_UUID)
 
-                // 1. Enable notifications
                 await notifyChar.startNotifications()
                 notifyChar.addEventListener('characteristicvaluechanged', handleDeviceResponse)
 
-                await delay(500)
-
-                // 2. Send the first bind command
-                await sendBindCommand(writeChar)
-                await delay(500)
-
-                // 3. Send Wi-Fi credentials
-                const ssid = '<yourssid>'
-                const password = '<yourpassword>'
-                await sendWifiCredentialsCommand(writeChar, ssid, password)
-                await delay(500)
-
-                // 4. Retrieve device ID
-                await sendRequestDeviceIdentityCommand(writeChar)
+                const dispatcher = new Dispatcher(writeChar)
+                await dispatcher.dispatch(new HandshakeCommand())
+                await dispatcher.dispatch(new ConfigureWifiCommand('<ssid>', '<password>'))
+                await dispatcher.dispatch(new RequestIdentityCommand())
             }
 
             function handleDeviceResponse(event) {
@@ -60,95 +179,6 @@
                     receivedBytes.push(value.getUint8(i).toString(16).padStart(2, '0'))
                 }
                 console.log(`Received data from device: ${receivedBytes.join(' ')}`)
-            }
-
-            async function sendBindCommand(writeChar) {
-                const handshakePacket = new Uint8Array([
-                    // --- 4-byte Header ---
-                    0x01, // Sequence Number: 1
-                    0x11, // Packet Info: (Packet 1 of 1)
-                    0x00, // Command ID: 11 (Big Endian Short, MSB)
-                    0x0B, // Command ID: 11 (Big Endian Short, LSB)
-
-                    // --- 15-byte Payload ---
-                    0x08, // Hardcoded first byte of payload
-                    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // Token (as 0L)
-                    0x05, // Length of version string "1.0.0"
-                    0x31, 0x2e, 0x30, 0x2e, 0x30  // ASCII for "1.0.0"
-                ])
-
-                await sendRawData(writeChar, handshakePacket)
-            }
-
-            async function sendWifiCredentialsCommand(writeChar, ssid, password) {
-                const encoder = new TextEncoder()
-                const ssidBytes = encoder.encode(ssid)
-                const passwordBytes = encoder.encode(password)
-
-                const ssidLenSize = 1
-                const ssidSize = ssidBytes.length
-                const passwordLenSize = 1
-                const passwordSize = passwordBytes.length
-                const plaintextPayload = new Uint8Array(ssidLenSize + ssidSize + passwordLenSize + passwordSize)
-
-                let offset = 0
-
-                plaintextPayload[offset] = ssidSize
-                offset++
-
-                plaintextPayload.set(ssidBytes, offset)
-                offset += ssidSize
-
-                plaintextPayload[offset] = passwordSize
-                offset++
-
-                plaintextPayload.set(passwordBytes, offset)
-
-                const packet1 = new Uint8Array([
-                    // Header (4 bytes)
-                    0x02, // Sequence Number: 2
-                    0x12, // Packet Info: (Packet 1 of 2)
-                    0x00, // Command ID: 21, Enc-Flag: 0 (Big Endian)
-                    0x15,
-                    ...plaintextPayload.slice(0, 16)
-                ])
-
-                const packet2 = new Uint8Array([
-                    // Header (4 bytes)
-                    0x03, // Sequence Number: 3
-                    0x22, // Packet Info: (Packet 2 of 2)
-                    0x00, // Command ID: 21, Enc-Flag: 0 (Big Endian)
-                    0x15,
-                    ...plaintextPayload.slice(16)
-                ])
-
-                console.log('Sending Wi-Fi credentials packet 1/2...')
-                await sendRawData(writeChar, packet1)
-                await delay(100)
-
-                console.log('Sending Wi-Fi credentials packet 2/2...')
-                await sendRawData(writeChar, packet2)
-            }
-
-            async function sendRequestDeviceIdentityCommand(writeChar) {
-                const packet = new Uint8Array([
-                    // Header (4 bytes)
-                    0x04, // Sequence Number: 4
-                    0x11, // Packet Info: (Packet 1 of 1)
-                    0x00, // Command ID: 22, Enc-Flag: 0 (Big Endian)
-                    0x16
-                ])
-
-                await sendRawData(writeChar, packet)
-            }
-
-            async function sendRawData(characteristic, data) {
-                const chunkSize = 20
-                for (let i = 0; i < data.length; i += chunkSize) {
-                    const chunk = data.slice(i, i + chunkSize)
-                    console.log(`Sending chunk: ${Array.from(chunk).map(b => b.toString(16).padStart(2, '0')).join(' ')}`)
-                    await characteristic.writeValueWithResponse(chunk)
-                }
             }
 
             const connect = document.getElementById('connect')
