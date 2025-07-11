@@ -306,12 +306,31 @@ class CommunicationForm extends Form {
   #failureForm = null
   #wifiCredentials = null
 
+  #retryMessage = null
+  #retryMessageClassName = 'retry-message'
+  #retryMessageShownClassName = 'retry-message--shown'
+
+  #retryLink = null
+  #retryLinkClassName = `retry-link`
+
   constructor(id, device) {
     super(id)
     this.#device = device
+    this.#retryMessage = this.form.querySelector(`.${this.#retryMessageClassName}`)
+    if (this.#retryMessage) {
+      this.#retryLink = this.form.querySelector(`.${this.#retryLinkClassName}`)
+      this.#retryLink.addEventListener('click', () => {
+        this.hideRetryOption()
+        this.startPairing()
+      })
+    }
   }
 
-  async onDisplay() {
+  onDisplay() {
+    this.startPairing()
+  }
+
+  async startPairing() {
     if (this.#device === null) {
       return
     }
@@ -320,7 +339,11 @@ class CommunicationForm extends Form {
       return
     }
 
-    await this.connect(this.#device, this.wifiCredentials)
+    try {
+      await this.connect(this.#device, this.wifiCredentials)
+    } catch {
+      this.showRetryOption()
+    }
   }
 
   async connect() {
@@ -351,6 +374,22 @@ class CommunicationForm extends Form {
       receivedBytes.push(value.getUint8(i).toString(16).padStart(2, '0'))
     }
     console.log(`Received data from device: ${receivedBytes.join(' ')}`)
+  }
+
+  showRetryOption() {
+    if (this.#retryMessage === null) {
+      return
+    }
+
+    this.#retryMessage.classList.add(this.#retryMessageShownClassName)
+  }
+
+  hideRetryOption() {
+    if (this.#retryMessage === null) {
+      return
+    }
+
+    this.#retryMessage.classList.remove(this.#retryMessageShownClassName)
   }
 
   succeedTo(form) {

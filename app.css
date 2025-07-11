@@ -168,6 +168,12 @@ body {
   margin-block-start: 1.5rem;
 }
 
+.form__link {
+  font-size: 0.9375rem;
+  line-height: 1.5;
+  color: var(--color-zinc-50);
+}
+
 .form__footer {
   margin-block-start: 4rem;
 }
@@ -316,4 +322,12 @@ body {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='15' height='15' fill='none'%3E%3Ccircle cx='8' cy='7.502' r='5.4' stroke='%2317A33C' stroke-linecap='round' stroke-linejoin='round' stroke-width='.9'/%3E%3Cpath stroke='%2317A33C' stroke-linecap='round' stroke-linejoin='round' stroke-width='.9' d='M6.5 7.502v-2.4h2.203c1.315 0 1.5 1.955.273 2.4m-2.476 0v2.4h2.203c1.315 0 1.5-1.954.273-2.4m-2.476 0h2.476'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: center;
+}
+
+.retry-message {
+  display: none;
+}
+
+.retry-message--shown {
+  display: block;
 }
