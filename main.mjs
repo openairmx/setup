@@ -243,7 +243,7 @@ class ProgressibleForm extends Form {
     return this
   }
 
-  nextForm() {
+  transitToNextForm() {
     if (this.#nextForm === null) {
       return
     }
@@ -261,7 +261,7 @@ class WelcomeForm extends ProgressibleForm {
 
   handleSubmit(event) {
     event.preventDefault()
-    this.nextForm()
+    this.transitToNextForm()
   }
 }
 
@@ -281,7 +281,7 @@ class WifiCredentialsForm extends ProgressibleForm {
       if (this.#submitCallback) {
         this.#submitCallback({ ssid, password })
       }
-      this.nextForm()
+      this.transitToNextForm()
     } catch (error) {
       this.alert(error.message)
     }
@@ -331,7 +331,7 @@ class PairingActivationForm extends ProgressibleForm {
 
   handleSubmit(event) {
     event.preventDefault()
-    this.nextForm()
+    this.transitToNextForm()
   }
 }
 
