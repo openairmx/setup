@@ -173,49 +173,6 @@ async function delay(ms) {
   return new Promise(resolve => setTimeout(resolve, ms))
 }
 
-async function connect() {
-  const ssid = document.getElementById('ssid')
-  const password = document.getElementById('password')
-
-  if (ssid.value === '' || password.value === '') {
-    return
-  }
-
-  const device = Device.airmxPro()
-  const wifiCredentials = { ssid: ssid.value, password: password.value }
-  await connectToDevice(device, wifiCredentials)
-}
-
-async function connectToDevice(device, wifiCredentials) {
-  const bluetoothDevice = await navigator.bluetooth.requestDevice({
-    filters: [{ name: device.name }],
-    optionalServices: [device.primaryServiceUuid]
-  })
-
-  const server = await bluetoothDevice.gatt.connect()
-  const service = await server.getPrimaryService(device.primaryServiceUuid)
-
-  const writeCharacteristic = await service.getCharacteristic(device.writeCharacteristicUuid)
-  const notifyCharacteristic = await service.getCharacteristic(device.notifyCharacteristicUuid)
-
-  await notifyCharacteristic.startNotifications()
-  notifyCharacteristic.addEventListener('characteristicvaluechanged', handleDeviceResponse)
-
-  const dispatcher = new Dispatcher(writeCharacteristic)
-  await dispatcher.dispatch(new HandshakeCommand())
-  await dispatcher.dispatch(new ConfigureWifiCommand(wifiCredentials.ssid, wifiCredentials.password))
-  await dispatcher.dispatch(new RequestIdentityCommand())
-}
-
-function handleDeviceResponse(event) {
-  const value = event.target.value
-  const receivedBytes = []
-  for (let i = 0; i < value.byteLength; i++) {
-    receivedBytes.push(value.getUint8(i).toString(16).padStart(2, '0'))
-  }
-  console.log(`Received data from device: ${receivedBytes.join(' ')}`)
-}
-
 class Form {
   #activeClassName = 'form--active'
 
@@ -228,10 +185,18 @@ class Form {
 
   display() {
     this.form.classList.add(this.#activeClassName)
+
+    if (typeof this.onDisplay === 'function') {
+      this.onDisplay()
+    }
   }
 
   hide() {
     this.form.classList.remove(this.#activeClassName)
+
+    if (typeof this.onHide === 'function') {
+      this.onHide()
+    }
   }
 }
 
@@ -336,9 +301,57 @@ class PairingActivationForm extends ProgressibleForm {
 }
 
 class CommunicationForm extends Form {
+  #device = null
   #successForm = null
   #failureForm = null
   #wifiCredentials = null
+
+  constructor(id, device) {
+    super(id)
+    this.#device = device
+  }
+
+  async onDisplay() {
+    if (this.#device === null) {
+      return
+    }
+
+    if (this.#wifiCredentials === null) {
+      return
+    }
+
+    await this.connect(this.#device, this.wifiCredentials)
+  }
+
+  async connect() {
+    const device = await navigator.bluetooth.requestDevice({
+      filters: [{ name: this.#device.name }],
+      optionalServices: [this.#device.primaryServiceUuid]
+    })
+
+    const server = await device.gatt.connect()
+    const service = await server.getPrimaryService(device.primaryServiceUuid)
+
+    const writeCharacteristic = await service.getCharacteristic(device.writeCharacteristicUuid)
+    const notifyCharacteristic = await service.getCharacteristic(device.notifyCharacteristicUuid)
+
+    await notifyCharacteristic.startNotifications()
+    notifyCharacteristic.addEventListener('characteristicvaluechanged', this.handleDeviceResponse.bind(this))
+
+    const dispatcher = new Dispatcher(writeCharacteristic)
+    await dispatcher.dispatch(new HandshakeCommand())
+    await dispatcher.dispatch(new ConfigureWifiCommand(this.#wifiCredentials.ssid, this.#wifiCredentials.password))
+    await dispatcher.dispatch(new RequestIdentityCommand())
+  }
+
+  handleDeviceResponse(event) {
+    const value = event.target.value
+    const receivedBytes = []
+    for (let i = 0; i < value.byteLength; i++) {
+      receivedBytes.push(value.getUint8(i).toString(16).padStart(2, '0'))
+    }
+    console.log(`Received data from device: ${receivedBytes.join(' ')}`)
+  }
 
   succeedTo(form) {
     this.#successForm = form
@@ -370,7 +383,7 @@ class Application {
 
     const successForm = new Form('form-result-success')
     const failureForm = new Form('form-result-failure')
-    const communicationForm = new CommunicationForm('form-communication')
+    const communicationForm = new CommunicationForm('form-communication', Device.airmxPro())
       .succeedTo(successForm)
       .failTo(failureForm)
     const pairingActivationForm = new PairingActivationForm('form-pairing-activation')
