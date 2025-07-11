@@ -269,6 +269,12 @@ body {
   background-color: var(--color-zinc-800);
 }
 
+.help-text {
+  margin-top: 1rem;
+  font-size: 0.875rem;
+  color: var(--color-zinc-600);
+}
+
 .physical-button {
   margin-inline: 0.5rem;
   vertical-align: middle;

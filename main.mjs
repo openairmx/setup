@@ -266,6 +266,8 @@ class WelcomeForm extends ProgressibleForm {
 }
 
 class WifiCredentialsForm extends ProgressibleForm {
+  #submitCallback = null
+
   constructor(id) {
     super(id)
     this.form.addEventListener('submit', this.handleSubmit.bind(this))
@@ -273,7 +275,51 @@ class WifiCredentialsForm extends ProgressibleForm {
 
   handleSubmit(event) {
     event.preventDefault()
-    this.nextForm()
+    const { elements } = event.target
+    try {
+      const [ssid, password] = this.validate(elements.ssid.value, elements.password.value)
+      if (this.#submitCallback) {
+        this.#submitCallback({ ssid, password })
+      }
+      this.nextForm()
+    } catch (error) {
+      this.alert(error.message)
+    }
+  }
+
+  validate(ssid, password) {
+    if (ssid === '' ) {
+      throw new Error('SSID cannot be empty.')
+    }
+
+    if (ssid.length > 32) {
+      throw new Error('SSID cannot be longer than 32 characters.')
+    }
+
+    if (password === '' ) {
+      throw new Error('Password cannot be empty.')
+    }
+
+    if (password.length < 8 || password.length > 63) {
+      throw new Error('Password must be between 8 and 63 characters long.')
+    }
+
+    return [ssid, password]
+  }
+
+  alert(message) {
+    this.form.querySelector('.help-text')?.remove()
+
+    const element = document.createElement('div')
+    element.classList.add('help-text', 'help-text--danger')
+    element.textContent = message
+
+    this.form.querySelector('.form__footer').before(element)
+  }
+
+  onSubmit(callback) {
+    this.#submitCallback = callback
+    return this
   }
 }
 
@@ -292,6 +338,7 @@ class PairingActivationForm extends ProgressibleForm {
 class CommunicationForm extends Form {
   #successForm = null
   #failureForm = null
+  #wifiCredentials = null
 
   succeedTo(form) {
     this.#successForm = form
@@ -300,6 +347,11 @@ class CommunicationForm extends Form {
 
   failTo(form) {
     this.#failureForm = form
+    return this
+  }
+
+  wifiCredentialsUsing(credentials) {
+    this.#wifiCredentials = credentials
     return this
   }
 }
@@ -325,6 +377,9 @@ class Application {
       .nextTo(communicationForm)
     const wifiCredentialsForm = new WifiCredentialsForm('form-wifi-credentials')
       .nextTo(pairingActivationForm)
+      .onSubmit((credentials) => {
+        communicationForm.wifiCredentialsUsing(credentials)
+      })
     const welcomeForm = new WelcomeForm('form-welcome')
       .nextTo(wifiCredentialsForm)
 
