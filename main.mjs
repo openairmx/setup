@@ -563,6 +563,9 @@ class CommunicationForm extends Form {
   /** @type {string} */
   #descriptionText
 
+  /** @type {Progress} */
+  #progress
+
   #handshakeCommand
   #wifiCredentialsCommand
   #identityCommand
@@ -590,6 +593,7 @@ class CommunicationForm extends Form {
     this.#messages = new IncomingMessageHandler()
     this.#messages.onMessage(this.handleMessage.bind(this))
     this.#setupCounter()
+    this.#setupProgress()
     this.#handshakeCommand = new HandshakeCommand()
     this.#wifiCredentialsCommand = new ConfigureWifiCommand('', '')
     this.#identityCommand = new RequestIdentityCommand()
@@ -611,10 +615,23 @@ class CommunicationForm extends Form {
     this.#description = this.form.querySelector('.form__description')
     this.#descriptionText = this.#description ? this.#description.textContent : ''
     this.#countdown = new Countdown(this.#description, 10)
-    this.#countdown.onComplete(this.transitToFailureResultForm.bind(this))
+    this.#countdown.onComplete(() => {
+      this.#progress.clear()
+      this.disconnectIfNeeded()
+      this.transitToFailureResultForm()
+    })
     this.#countdown.onStop(() => {
       this.#description.textContent = this.#descriptionText
     })
+  }
+
+  #setupProgress() {
+    const el = this.form.querySelector('[data-slot="progress"]')
+    this.#progress = new Progress(el, [
+      { id: 'handshake', name: 'Say a hello to the machine' },
+      { id: 'wifi', name: 'Send Wi-Fi credentials' },
+      { id: 'identity', name: 'Receive the device\'s identity' }
+    ])
   }
 
   async startPairing() {
@@ -622,14 +639,16 @@ class CommunicationForm extends Form {
       await this.connect()
     } catch {
       this.showRetryOption()
-    } finally {
-      this.disconnectIfNeeded()
     }
   }
 
   async connect() {
     await this.#handler.connect()
+
     this.#countdown.start()
+    this.#progress.render()
+
+    this.#progress.markAsCurrent('handshake')
     await this.#handler.dispatch(this.#handshakeCommand)
   }
 
@@ -661,6 +680,8 @@ class CommunicationForm extends Form {
    * @param {CompleteMessage} message
    */
   handleHandshakeMessage(message) {
+    this.#progress.markAsComplete('handshake')
+    this.#progress.markAsCurrent('wifi')
     this.#handler.dispatch(this.#wifiCredentialsCommand)
   }
 
@@ -668,6 +689,8 @@ class CommunicationForm extends Form {
    * @param {CompleteMessage} message
    */
   handleWifiCredentialsMessage(message) {
+    this.#progress.markAsComplete('wifi')
+    this.#progress.markAsCurrent('identity')
     this.#handler.dispatch(this.#identityCommand)
   }
 
@@ -676,6 +699,9 @@ class CommunicationForm extends Form {
    */
   handleIdentityMessage(message) {
     this.#countdown.stop()
+    this.#progress.markAsComplete('identity')
+    this.#progress.clear()
+    this.disconnectIfNeeded()
     this.transitToSuccessResultForm()
   }
 
@@ -730,6 +756,85 @@ class FailureForm extends ProgressibleForm {
   handleSubmit(event) {
     event.preventDefault()
     this.transitToNextForm()
+  }
+}
+
+class Progress {
+  #el
+  #steps
+
+  /**
+   * @param {HTMLElement|null} el - The HTML element to display the progress.
+   * @param {{ id: string, name: string }[]} steps - The progress steps.
+   */
+  constructor(el, steps) {
+    this.#el = el
+    this.#steps = steps
+    if (this.#el === null) {
+      throw new Error('The HTML element could not be found to mount the progress.')
+    }
+  }
+
+  render() {
+    if (! this.#el.classList.contains('progress')) {
+      this.#el.classList.add('progress')
+    }
+
+    for (const step of this.#steps) {
+      const el = document.createElement('li')
+      el.innerText = step.name
+      el.classList.add('progress__item')
+      el.dataset.progress = step.id
+      this.#el.appendChild(el)
+    }
+  }
+
+  clear() {
+    this.#el.innerHTML = ''
+  }
+
+  /**
+   * @param {string} step - The step ID.
+   */
+  markAsCurrent(step) {
+    this.markAsDefault(step)
+
+    const el = this.#stepElement(step)
+    el.dataset.current = ''
+  }
+
+  /**
+   * @param {string} step - The step ID.
+   */
+  markAsComplete(step) {
+    this.markAsDefault(step)
+
+    const el = this.#stepElement(step)
+    el.dataset.complete = ''
+  }
+
+  /**
+   * @param {string} step - The step ID.
+   */
+  markAsDefault(step) {
+    const el = this.#stepElement(step)
+    if ('current' in el.dataset) {
+      delete el.dataset.current
+    }
+    if ('complete' in el.dataset) {
+      delete el.dataset.complete
+    }
+  }
+
+  /**
+   * @param {string} id - The step ID.
+   */
+  #stepElement(id) {
+    const el = this.#el.querySelector(`[data-progress="${id}"]`)
+    if (! el) {
+      throw new Error(`Progress step "${step}" does not exist.`)
+    }
+    return el
   }
 }
 
