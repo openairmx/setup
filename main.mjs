@@ -245,15 +245,21 @@ async function delay(ms) {
 
 class IncomingMessageHandler {
   #encoder
+
+  /** @type {IncomingMessage[]} */
   #bag = []
+
   #messageHandler = null
 
   constructor() {
     this.#encoder = new TextEncoder()
   }
 
-  handle(packet) {
-    const message = IncomingMessage.parse(this.#encoder.encode(packet))
+  /**
+   * @param {DataView} view
+   */
+  handle(view) {
+    const message = IncomingMessage.parse(view)
     this.#addToBag(message)
   }
 
@@ -281,18 +287,21 @@ class IncomingMessageHandler {
       throw new Error('Incomplete message received.')
     }
 
-    const data = []
+    let data = new Uint8Array()
 
     for (const [index, message] of bag.entries()) {
       if (message.currentPacket !== index + 1) {
         throw new Error(`Message packet ${index + 1} is missing.`)
       }
 
-      data.push(...message.payload)
+      const temp = new Uint8Array(data.byteLength + message.payload.byteLength)
+      temp.set(data)
+      temp.set(message.payload, data.byteLength)
+      data = temp
     }
 
     const completeMessage = new CompleteMessage(
-      lastMessage.commandId, new Uint8Array(data)
+      lastMessage.commandId, new DataView(data.buffer)
     )
 
     this.#notify(completeMessage)
@@ -332,23 +341,23 @@ class IncomingMessage {
   }
 
   /**
-   * @param {Uint8Array} packet - The raw packet data.
+   * @param {DataView} view - The raw packet data.
    * @returns {IncomingMessage}
    */
-  static parse(packet) {
-    if (packet.length < 4) {
+  static parse(view) {
+    if (view.byteLength < 4) {
       throw new Error('Invalid packet length.')
     }
 
-    const sequenceNumber = packet[0]
-    const currentPacket = packet[1] >> 4
-    const totalPacket = packet[1] & 0x0f
-    const encrypted = packet[2]
-    const commandId = packet[3]
+    const sequenceNumber = view.getUint8(0)
+    const currentPacket = view.getUint8(1) >> 4
+    const totalPacket = view.getUint8(1) & 0x0f
+    const encrypted = view.getUint8(2)
+    const commandId = view.getUint8(3)
 
     return new IncomingMessage(
       sequenceNumber, currentPacket, totalPacket,
-      !! encrypted, commandId, packet.slice(4)
+      !! encrypted, commandId, new Uint8Array(view.buffer.slice(4))
     )
   }
 }
@@ -356,7 +365,7 @@ class IncomingMessage {
 class CompleteMessage {
   /**
    * @param {number} commandId - The command ID of the message.
-   * @param {Uint8Array} payload - The message payload.
+   * @param {DataView} payload - The message payload.
    */
   constructor(commandId, payload) {
     this.commandId = commandId
@@ -711,12 +720,11 @@ class CommunicationForm extends Form {
     this.disconnectIfNeeded()
 
     if (this.#pairHandler) {
-      const length = message.payload[0]
-      let deviceId = 0
-      for (let i = 0; i < length; i++) {
-        deviceId = (deviceId << 8) | message.payload[1 + i]
+      const length = message.payload.getUint8(0)
+      if (length === 4) {
+        const deviceId = message.payload.getUint32(1)
+        this.#pairHandler(deviceId)
       }
-      this.#pairHandler(deviceId)
     }
 
     this.transitToSuccessResultForm()
