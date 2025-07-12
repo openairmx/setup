@@ -995,25 +995,25 @@ class Application {
       return
     }
 
-    const handler = new BluetoothHandler(Device.airmxPro())
-
     const successForm = new SuccessForm('form-result-success')
     const failureForm = new FailureForm('form-result-failure')
+
+    const handler = new BluetoothHandler(Device.airmxPro())
     const communicationForm = new CommunicationForm('form-communication', handler)
       .succeedTo(successForm)
       .failTo(failureForm)
       .onPair((deviceId) => {
         successForm.deviceIdUsing(deviceId)
       })
+
     const pairingActivationForm = new PairingActivationForm('form-pairing-activation')
       .nextTo(communicationForm)
+
     const wifiCredentialsForm = new WifiCredentialsForm('form-wifi-credentials')
       .nextTo(pairingActivationForm)
       .onSubmit((credentials) => {
         communicationForm.wifiCredentialsUsing(credentials)
       })
-    const welcomeForm = new WelcomeForm('form-welcome')
-      .nextTo(wifiCredentialsForm)
 
     // If the pairing process fails, we will redirect the user to the Wi-Fi
     // credentials form so that they can retry with different credentials.
@@ -1021,7 +1021,9 @@ class Application {
 
     // Now that everything is set up, it's time to show the user
     // the welcome screen.
-    welcomeForm.display()
+    new WelcomeForm('form-welcome')
+      .nextTo(wifiCredentialsForm)
+      .display()
   }
 }
 
