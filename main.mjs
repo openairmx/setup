@@ -581,6 +581,13 @@ class CommunicationForm extends Form {
   #retryLinkClassName = `retry-link`
 
   /**
+   * The callback handles the registered device.
+   *
+   * @type {CallableFunction|null}
+   */
+  #pairHandler = null
+
+  /**
    * @param {string} id - The ID of the form.
    * @param {BluetoothHandler} handler - The Bluetooth handler to manage the connection.
    */
@@ -702,6 +709,16 @@ class CommunicationForm extends Form {
     this.#progress.markAsComplete('identity')
     this.#progress.clear()
     this.disconnectIfNeeded()
+
+    if (this.#pairHandler) {
+      const length = message.payload[0]
+      let deviceId = 0
+      for (let i = 0; i < length; i++) {
+        deviceId = (deviceId << 8) | message.payload[1 + i]
+      }
+      this.#pairHandler(deviceId)
+    }
+
     this.transitToSuccessResultForm()
   }
 
@@ -736,6 +753,14 @@ class CommunicationForm extends Form {
     return this
   }
 
+  /**
+   * @param {CallableFunction} handler
+   */
+  onPair(handler) {
+    this.#pairHandler = handler
+    return this
+  }
+
   transitToSuccessResultForm() {
     this.hide()
     this.#successForm?.display()
@@ -744,6 +769,126 @@ class CommunicationForm extends Form {
   transitToFailureResultForm() {
     this.hide()
     this.#failureForm?.display()
+  }
+}
+
+class SuccessForm extends Form {
+  /** @type {HTMLElement} */
+  #inputGroup
+
+  /** @type {HTMLElement} */
+  #input
+
+  /** @type {HTMLElement} */
+  #button
+
+  /** @type {string|null} */
+  #deviceId = null
+
+  /** @type {string|null} */
+  #key = null
+
+  constructor(id) {
+    super(id)
+    this.#inputGroup = this.form.querySelector('[data-key]')
+    if (this.#inputGroup === null) {
+      throw new Error('Could not find the input group for device key.')
+    }
+    this.#renderInput()
+  }
+
+  #renderInput() {
+    this.#input = document.createElement('input')
+    this.#input.classList.add('input')
+    this.#input.setAttribute('type', 'text')
+    this.#input.setAttribute('name', 'key')
+    this.#input.setAttribute('value', 'Loading...')
+    this.#input.setAttribute('readonly', '')
+    this.#inputGroup.appendChild(this.#input)
+  }
+
+  #renderButton() {
+    this.#button = document.createElement('button')
+    this.#button.classList.add('button')
+    this.#button.setAttribute('type', 'button')
+    this.#button.addEventListener('click', this.#handleButtonClick.bind(this))
+    this.#button.innerText = 'Copy'
+    this.#inputGroup.appendChild(this.#button)
+  }
+
+  onDisplay() {
+    if (this.#key === null) {
+      this.#initializeDeviceKey()
+    }
+  }
+
+  async #initializeDeviceKey() {
+    try {
+      this.#key = await this.#fetchDeviceKey()
+
+      if (this.#key === null) {
+        this.#handleDeviceKeyRetrievalFailure()
+        return
+      }
+
+      this.#input.value = this.#key
+      this.#renderButton()
+    } catch {
+      this.#handleDeviceKeyRetrievalFailure()
+    }
+  }
+
+  async #fetchDeviceKey() {
+    if (this.#deviceId === null) {
+      return null
+    }
+
+    const response = await fetch(`https://i.airmx.cn/exchange?device=${this.#deviceId}`)
+
+    if (! response.ok) {
+      throw new Error('Could not retrieve the device key.')
+    }
+
+    const data = await response.json()
+    return data.key
+  }
+
+  async #handleButtonClick() {
+    if (! this.#input) {
+      return
+    }
+
+    try {
+      await navigator.clipboard.writeText(this.#input.value)
+      this.#alert('Copied to the clipboard.')
+    } catch {
+      this.#alert('Unable to copy to the clipboard because of permission issues.')
+    }
+  }
+
+  /**
+   * @param {string} message
+   */
+  #alert(message) {
+    this.form.querySelector('.help-text')?.remove()
+
+    const element = document.createElement('div')
+    element.classList.add('help-text')
+    element.textContent = message
+
+    this.form.appendChild(element)
+  }
+
+  #handleDeviceKeyRetrievalFailure() {
+    this.#input.value = 'Could not retrieve the device key.'
+  }
+
+  /**
+   * @param {number} deviceId
+   */
+  deviceIdUsing(deviceId) {
+    this.#deviceId = deviceId
+    return this
   }
 }
 
@@ -852,11 +997,14 @@ class Application {
 
     const handler = new BluetoothHandler(Device.airmxPro())
 
-    const successForm = new Form('form-result-success')
+    const successForm = new SuccessForm('form-result-success')
     const failureForm = new FailureForm('form-result-failure')
     const communicationForm = new CommunicationForm('form-communication', handler)
       .succeedTo(successForm)
       .failTo(failureForm)
+      .onPair((deviceId) => {
+        successForm.deviceIdUsing(deviceId)
+      })
     const pairingActivationForm = new PairingActivationForm('form-pairing-activation')
       .nextTo(communicationForm)
     const wifiCredentialsForm = new WifiCredentialsForm('form-wifi-credentials')
