@@ -630,7 +630,7 @@ class CommunicationForm extends Form {
   #setupCounter() {
     this.#description = this.form.querySelector('.form__description')
     this.#descriptionText = this.#description ? this.#description.textContent : ''
-    this.#countdown = new Countdown(this.#description, 10)
+    this.#countdown = new Countdown(this.#description, 30)
     this.#countdown.onComplete(() => {
       this.#progress.clear()
       this.disconnectIfNeeded()
