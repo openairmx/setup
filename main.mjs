@@ -628,9 +628,6 @@ class CommunicationForm extends Form {
   }
 
   async connect() {
-    if (! this.#handler) {
-      return
-    }
     await this.#handler.connect()
     this.#countdown.start()
     await this.#handler.dispatch(this.#handshakeCommand)
