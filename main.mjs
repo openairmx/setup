@@ -851,7 +851,10 @@ class SuccessForm extends Form {
       return null
     }
 
-    const response = await fetch(`https://i.airmx.cn/exchange?device=${this.#deviceId}`)
+    // We are using HTTP because the domain name is remapped to our local
+    // mock server, and the communication between the device and our mock
+    // server utilizes the HTTP protocol as well.
+    const response = await fetch(`http://i.airmx.cn/exchange?device=${this.#deviceId}`)
 
     if (! response.ok) {
       throw new Error('Could not retrieve the device key.')
