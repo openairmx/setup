@@ -106,6 +106,76 @@ class Dispatcher {
   }
 }
 
+class BluetoothHandler {
+  #device
+  #dispatcher = null
+  #gatt = null
+  #writeCharacteristic = null
+  #notifyCharacteristic = null
+  #notificationHandler = null
+
+  /**
+   * @param {Device} device
+   */
+  constructor(device) {
+    this.#device = device
+  }
+
+  async connect() {
+    const device = await navigator.bluetooth.requestDevice({
+      filters: [{ name: this.#device.name }],
+      optionalServices: [this.#device.primaryServiceUuid]
+    })
+
+    this.#gatt = await device.gatt.connect()
+    const service = await this.#gatt.getPrimaryService(this.#device.primaryServiceUuid)
+    this.#writeCharacteristic = await service.getCharacteristic(this.#device.writeCharacteristicUuid)
+    this.#notifyCharacteristic = await service.getCharacteristic(this.#device.notifyCharacteristicUuid)
+    this.#dispatcher = new Dispatcher(this.#writeCharacteristic)
+
+    await this.#notifyCharacteristic.startNotifications()
+    this.#notifyCharacteristic.addEventListener('characteristicvaluechanged', this.#handleNotification.bind(this))
+  }
+
+  async disconnect() {
+    if (this.#notifyCharacteristic) {
+      await this.#notifyCharacteristic.stopNotifications()
+      this.#notifyCharacteristic.removeEventListener('characteristicvaluechanged', this.#handleNotification.bind(this))
+      this.#notifyCharacteristic = null
+    }
+
+    this.#dispatcher = null
+    this.#writeCharacteristic = null
+
+    if (this.#gatt) {
+      this.#gatt.disconnect()
+      this.#gatt = null
+    }
+  }
+
+  /**
+   * @param {Command} command - The command to dispatch.
+   */
+  async dispatch(command) {
+    if (! this.#dispatcher) {
+      return
+    }
+    await this.#dispatcher.dispatch(command)
+    return this
+  }
+
+  onNotification(handler) {
+    this.#notificationHandler = handler
+    return this
+  }
+
+  #handleNotification(event) {
+    if (this.#notificationHandler) {
+      this.#notificationHandler(event)
+    }
+  }
+}
+
 class Command {
   get commandId() {
     throw new Error('The command ID does not exist.')
@@ -171,6 +241,127 @@ class RequestIdentityCommand extends Command {
 
 async function delay(ms) {
   return new Promise(resolve => setTimeout(resolve, ms))
+}
+
+class IncomingMessageHandler {
+  #encoder
+  #bag = []
+  #messageHandler = null
+
+  constructor() {
+    this.#encoder = new TextEncoder()
+  }
+
+  handle(packet) {
+    const message = IncomingMessage.parse(this.#encoder.encode(packet))
+    this.#addToBag(message)
+  }
+
+  onMessage(handler) {
+    this.#messageHandler = handler
+    return this
+  }
+
+  /**
+   * @param {IncomingMessage} message
+   */
+  #addToBag(message) {
+    this.#bag.push(message)
+
+    if (message.currentPacket === message.totalPacket) {
+      this.#processBag()
+    }
+  }
+
+  #processBag() {
+    const bag = [...this.#bag]
+    const lastMessage = bag.at(-1)
+
+    if (bag.length !== lastMessage.totalPacket) {
+      throw new Error('Incomplete message received.')
+    }
+
+    const data = []
+
+    for (const [index, message] of bag.entries()) {
+      if (message.currentPacket !== index + 1) {
+        throw new Error(`Message packet ${index + 1} is missing.`)
+      }
+
+      data.push(...message.payload)
+    }
+
+    const completeMessage = new CompleteMessage(
+      lastMessage.commandId, new Uint8Array(data)
+    )
+
+    this.#notify(completeMessage)
+    this.#clearBag()
+  }
+
+  #clearBag() {
+    this.#bag = []
+  }
+
+  /**
+   * @param {CompleteMessage} message
+   */
+  #notify(message) {
+    if (this.#messageHandler) {
+      this.#messageHandler(message)
+    }
+  }
+}
+
+class IncomingMessage {
+  /**
+   * @param {number} sequenceNumber - The sequence number of the packet.
+   * @param {number} currentPacket - The current packet number.
+   * @param {number} totalPacket - The total number of packets.
+   * @param {boolean} encrypted - Determines if the packet is encrypted.
+   * @param {number} commandId - The command ID.
+   * @param {Uint8Array} payload - The message payload.
+   */
+  constructor(sequenceNumber, currentPacket, totalPacket, encrypted, commandId, payload) {
+    this.sequenceNumber = sequenceNumber
+    this.currentPacket = currentPacket
+    this.totalPacket = totalPacket
+    this.encrypted = encrypted
+    this.commandId = commandId
+    this.payload = payload
+  }
+
+  /**
+   * @param {Uint8Array} packet - The raw packet data.
+   * @returns {IncomingMessage}
+   */
+  static parse(packet) {
+    if (packet.length < 4) {
+      throw new Error('Invalid packet length.')
+    }
+
+    const sequenceNumber = packet[0]
+    const currentPacket = packet[1] >> 4
+    const totalPacket = packet[1] & 0x0f
+    const encrypted = packet[2]
+    const commandId = packet[3]
+
+    return new IncomingMessage(
+      sequenceNumber, currentPacket, totalPacket,
+      !! encrypted, commandId, packet.slice(4)
+    )
+  }
+}
+
+class CompleteMessage {
+  /**
+   * @param {number} commandId - The command ID of the message.
+   * @param {Uint8Array} payload - The message payload.
+   */
+  constructor(commandId, payload) {
+    this.commandId = commandId
+    this.payload = payload
+  }
 }
 
 class Form {
@@ -301,10 +492,15 @@ class PairingActivationForm extends ProgressibleForm {
 }
 
 class CommunicationForm extends Form {
-  #device = null
+  #handler
+  #messages = null
+
+  #handshakeCommand
+  #wifiCredentialsCommand
+  #identityCommand
+
   #successForm = null
   #failureForm = null
-  #wifiCredentials = null
 
   #retryMessage = null
   #retryMessageClassName = 'retry-message'
@@ -313,9 +509,21 @@ class CommunicationForm extends Form {
   #retryLink = null
   #retryLinkClassName = `retry-link`
 
-  constructor(id, device) {
+  /**
+   * @param {string} id - The ID of the form.
+   * @param {BluetoothHandler} handler - The Bluetooth handler to manage the connection.
+   */
+  constructor(id, handler) {
     super(id)
-    this.#device = device
+    this.#handler = handler
+    this.#handler.onNotification((event) => {
+      this.#messages.handle(event.target.value)
+    })
+    this.#messages = new IncomingMessageHandler()
+    this.#messages.onMessage(this.handleMessage.bind(this))
+    this.#handshakeCommand = new HandshakeCommand()
+    this.#wifiCredentialsCommand = new ConfigureWifiCommand('', '')
+    this.#identityCommand = new RequestIdentityCommand()
     this.#retryMessage = this.form.querySelector(`.${this.#retryMessageClassName}`)
     if (this.#retryMessage) {
       this.#retryLink = this.form.querySelector(`.${this.#retryLinkClassName}`)
@@ -331,49 +539,66 @@ class CommunicationForm extends Form {
   }
 
   async startPairing() {
-    if (this.#device === null) {
-      return
-    }
-
-    if (this.#wifiCredentials === null) {
-      return
-    }
-
     try {
-      await this.connect(this.#device, this.wifiCredentials)
+      await this.connect()
     } catch {
       this.showRetryOption()
+    } finally {
+      this.disconnectIfNeeded()
     }
   }
 
   async connect() {
-    const device = await navigator.bluetooth.requestDevice({
-      filters: [{ name: this.#device.name }],
-      optionalServices: [this.#device.primaryServiceUuid]
-    })
-
-    const server = await device.gatt.connect()
-    const service = await server.getPrimaryService(device.primaryServiceUuid)
-
-    const writeCharacteristic = await service.getCharacteristic(device.writeCharacteristicUuid)
-    const notifyCharacteristic = await service.getCharacteristic(device.notifyCharacteristicUuid)
-
-    await notifyCharacteristic.startNotifications()
-    notifyCharacteristic.addEventListener('characteristicvaluechanged', this.handleDeviceResponse.bind(this))
-
-    const dispatcher = new Dispatcher(writeCharacteristic)
-    await dispatcher.dispatch(new HandshakeCommand())
-    await dispatcher.dispatch(new ConfigureWifiCommand(this.#wifiCredentials.ssid, this.#wifiCredentials.password))
-    await dispatcher.dispatch(new RequestIdentityCommand())
+    if (! this.#handler) {
+      return
+    }
+    await this.#handler.connect()
+    await this.#handler.dispatch(this.#handshakeCommand)
   }
 
-  handleDeviceResponse(event) {
-    const value = event.target.value
-    const receivedBytes = []
-    for (let i = 0; i < value.byteLength; i++) {
-      receivedBytes.push(value.getUint8(i).toString(16).padStart(2, '0'))
+  async disconnectIfNeeded() {
+    await this.#handler.disconnect()
+  }
+
+  /**
+   * @param {CompleteMessage} message
+   */
+  handleMessage(message) {
+    switch (message.commandId) {
+      case this.#handshakeCommand.commandId:
+        this.handleHandshakeMessage(message)
+        break
+      case this.#wifiCredentialsCommand.commandId:
+        this.handleWifiCredentialsMessage(message)
+        break
+      case this.#identityCommand.commandId:
+        this.handleIdentityMessage(message)
+        break
+      default:
+        console.warn(`Unknown command ID: ${message.commandId}`)
+        break
     }
-    console.log(`Received data from device: ${receivedBytes.join(' ')}`)
+  }
+
+  /**
+   * @param {CompleteMessage} message
+   */
+  handleHandshakeMessage(message) {
+    this.#handler.dispatch(this.#wifiCredentialsCommand)
+  }
+
+  /**
+   * @param {CompleteMessage} message
+   */
+  handleWifiCredentialsMessage(message) {
+    this.#handler.dispatch(this.#identityCommand)
+  }
+
+  /**
+   * @param {CompleteMessage} message
+   */
+  handleIdentityMessage(message) {
+    this.transitToSuccessResultForm()
   }
 
   showRetryOption() {
@@ -403,8 +628,18 @@ class CommunicationForm extends Form {
   }
 
   wifiCredentialsUsing(credentials) {
-    this.#wifiCredentials = credentials
+    this.#wifiCredentialsCommand = new ConfigureWifiCommand(credentials.ssid, credentials.password)
     return this
+  }
+
+  transitToSuccessResultForm() {
+    this.hide()
+    this.#successForm?.display()
+  }
+
+  transitToFailureResultForm() {
+    this.hide()
+    this.#failureForm?.display()
   }
 }
 
@@ -420,9 +655,11 @@ class Application {
       return
     }
 
+    const handler = new BluetoothHandler(Device.airmxPro())
+
     const successForm = new Form('form-result-success')
     const failureForm = new Form('form-result-failure')
-    const communicationForm = new CommunicationForm('form-communication', Device.airmxPro())
+    const communicationForm = new CommunicationForm('form-communication', handler)
       .succeedTo(successForm)
       .failTo(failureForm)
     const pairingActivationForm = new PairingActivationForm('form-pairing-activation')
