@@ -92,6 +92,7 @@ body {
   font-family: "Inter", sans-serif;
   color: var(--color-white);
   background: var(--color-zinc-950) url(assets/airmx-pro.png) no-repeat center bottom / auto 10rem;
+  min-height: 100vh;
 }
 
 @media (min-width: 768px) {
