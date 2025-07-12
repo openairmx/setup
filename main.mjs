@@ -364,6 +364,65 @@ class CompleteMessage {
   }
 }
 
+class Countdown {
+  #clock = null
+  #stopHandler = null
+  #completeHandler = null
+
+  /**
+   * @param {HTMLElement|null} el - The HTML element to display the countdown.
+   * @param {number} seconds - The number of seconds for the countdown.
+   */
+  constructor(el, seconds) {
+    this.el = el
+    this.seconds = seconds
+
+    if (this.el === null) {
+      throw new Error('The HTML element could not be found to mount the countdown.')
+    }
+  }
+
+  start() {
+    this.stop()
+
+    let remaining = this.seconds
+    this.#clock = setInterval(() => {
+      this.el.textContent = `${--remaining}s`
+      if (remaining === 0) {
+        this.stop()
+        this.notifyComplete()
+      }
+    }, 1000)
+  }
+
+  stop() {
+    if (! this.#clock) {
+      return
+    }
+
+    clearInterval(this.#clock)
+    this.#clock = null
+
+    if (this.#stopHandler) {
+      this.#stopHandler()
+    }
+  }
+
+  onStop(callback) {
+    this.#stopHandler = callback
+  }
+
+  onComplete(callback) {
+    this.#completeHandler = callback
+  }
+
+  notifyComplete() {
+    if (this.#completeHandler) {
+      this.#completeHandler()
+    }
+  }
+}
+
 class Form {
   #activeClassName = 'form--active'
 
@@ -495,6 +554,15 @@ class CommunicationForm extends Form {
   #handler
   #messages = null
 
+  /** @type {Countdown} */
+  #countdown
+
+  /** @type {HTMLElement|null} */
+  #description
+
+  /** @type {string} */
+  #descriptionText
+
   #handshakeCommand
   #wifiCredentialsCommand
   #identityCommand
@@ -521,6 +589,7 @@ class CommunicationForm extends Form {
     })
     this.#messages = new IncomingMessageHandler()
     this.#messages.onMessage(this.handleMessage.bind(this))
+    this.#setupCounter()
     this.#handshakeCommand = new HandshakeCommand()
     this.#wifiCredentialsCommand = new ConfigureWifiCommand('', '')
     this.#identityCommand = new RequestIdentityCommand()
@@ -538,6 +607,16 @@ class CommunicationForm extends Form {
     this.startPairing()
   }
 
+  #setupCounter() {
+    this.#description = this.form.querySelector('.form__description')
+    this.#descriptionText = this.#description ? this.#description.textContent : ''
+    this.#countdown = new Countdown(this.#description, 10)
+    this.#countdown.onComplete(this.transitToFailureResultForm.bind(this))
+    this.#countdown.onStop(() => {
+      this.#description.textContent = this.#descriptionText
+    })
+  }
+
   async startPairing() {
     try {
       await this.connect()
@@ -553,6 +632,7 @@ class CommunicationForm extends Form {
       return
     }
     await this.#handler.connect()
+    this.#countdown.start()
     await this.#handler.dispatch(this.#handshakeCommand)
   }
 
@@ -598,6 +678,7 @@ class CommunicationForm extends Form {
    * @param {CompleteMessage} message
    */
   handleIdentityMessage(message) {
+    this.#countdown.stop()
     this.transitToSuccessResultForm()
   }
 
@@ -643,6 +724,18 @@ class CommunicationForm extends Form {
   }
 }
 
+class FailureForm extends ProgressibleForm {
+  constructor(id) {
+    super(id)
+    this.form.addEventListener('submit', this.handleSubmit.bind(this))
+  }
+
+  handleSubmit(event) {
+    event.preventDefault()
+    this.transitToNextForm()
+  }
+}
+
 class Application {
   static supportBluetoothApi() {
     return 'bluetooth' in navigator
@@ -658,7 +751,7 @@ class Application {
     const handler = new BluetoothHandler(Device.airmxPro())
 
     const successForm = new Form('form-result-success')
-    const failureForm = new Form('form-result-failure')
+    const failureForm = new FailureForm('form-result-failure')
     const communicationForm = new CommunicationForm('form-communication', handler)
       .succeedTo(successForm)
       .failTo(failureForm)
@@ -672,6 +765,12 @@ class Application {
     const welcomeForm = new WelcomeForm('form-welcome')
       .nextTo(wifiCredentialsForm)
 
+    // If the pairing process fails, we will redirect the user to the Wi-Fi
+    // credentials form so that they can retry with different credentials.
+    failureForm.nextTo(wifiCredentialsForm)
+
+    // Now that everything is set up, it's time to show the user
+    // the welcome screen.
     welcomeForm.display()
   }
 }
