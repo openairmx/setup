@@ -52,7 +52,7 @@ class Dispatcher {
     for (let chunk of data) {
       console.log(`Sending chunk: ${Array.from(chunk).map(b => b.toString(16).padStart(2, '0')).join(' ')}`)
       await this.#characteristic.writeValueWithResponse(chunk)
-      await delay(500)
+      await Clock.delay(500)
     }
   }
 
@@ -239,8 +239,10 @@ class RequestIdentityCommand extends Command {
   }
 }
 
-async function delay(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms))
+class Clock {
+  static delay(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms))
+  }
 }
 
 class IncomingMessageHandler {
