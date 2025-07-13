@@ -492,10 +492,12 @@ class WelcomeForm extends ProgressibleForm {
 }
 
 class WifiCredentialsForm extends ProgressibleForm {
+  #alert
   #submitCallback = null
 
   constructor(id) {
     super(id)
+    this.#alert = new Alert(this.form.querySelector('[data-alert]'))
     this.form.addEventListener('submit', this.handleSubmit.bind(this))
   }
 
@@ -509,7 +511,7 @@ class WifiCredentialsForm extends ProgressibleForm {
       }
       this.transitToNextForm()
     } catch (error) {
-      this.alert(error.message)
+      this.#alert.show(error.message)
     }
   }
 
@@ -531,16 +533,6 @@ class WifiCredentialsForm extends ProgressibleForm {
     }
 
     return [ssid, password]
-  }
-
-  alert(message) {
-    this.form.querySelector('.help-text')?.remove()
-
-    const element = document.createElement('div')
-    element.classList.add('help-text', 'help-text--danger')
-    element.textContent = message
-
-    this.form.querySelector('.form__footer').before(element)
   }
 
   onSubmit(callback) {
@@ -792,6 +784,8 @@ class SuccessForm extends Form {
   /** @type {HTMLElement} */
   #button
 
+  #alert
+
   /** @type {string|null} */
   #deviceId = null
 
@@ -804,6 +798,7 @@ class SuccessForm extends Form {
     if (this.#inputGroup === null) {
       throw new Error('Could not find the input group for device key.')
     }
+    this.#alert = new Alert(this.form.querySelector('[data-alert]'))
     this.#renderInput()
   }
 
@@ -873,23 +868,10 @@ class SuccessForm extends Form {
 
     try {
       await navigator.clipboard.writeText(this.#input.value)
-      this.#alert('Copied to the clipboard.')
+      this.#alert.show('Copied to the clipboard.')
     } catch {
-      this.#alert('Unable to copy to the clipboard because of permission issues.')
+      this.#alert.show('Unable to copy to the clipboard because of permission issues.')
     }
-  }
-
-  /**
-   * @param {string} message
-   */
-  #alert(message) {
-    this.form.querySelector('.help-text')?.remove()
-
-    const element = document.createElement('div')
-    element.classList.add('help-text')
-    element.textContent = message
-
-    this.form.appendChild(element)
   }
 
   #handleDeviceKeyRetrievalFailure() {
@@ -914,6 +896,31 @@ class FailureForm extends ProgressibleForm {
   handleSubmit(event) {
     event.preventDefault()
     this.transitToNextForm()
+  }
+}
+
+class Alert {
+  /** @type {HTMLElement} */
+  #el
+
+  /**
+   * @param {HTMLElement|null} el - The HTML element to mount the alert component.
+   */
+  constructor(el) {
+    if (el === null) {
+      throw new Error('The HTML element to mount the alert component does not exist.')
+    }
+    this.#el = el
+  }
+
+  /**
+   * @param {string} message
+   */
+  show(message) {
+    if (! this.#el.classList.contains('help-text')) {
+      this.#el.classList.add('help-text')
+    }
+    this.#el.textContent = message
   }
 }
 
