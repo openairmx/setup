@@ -18,19 +18,26 @@
   <main class="container">
     <form id="form-unsupported" class="form">
       <p class="form__text">
-        Oops! Your browser doesn't support the Web Bluetooth API. To set up your AIRMX Pro, please consider switching to Google Chrome 56+ or Microsoft Edge 79+.
+        Oops! Your browser doesn't support the Web Bluetooth API. To set up
+        your AIRMX Pro, please consider switching to Google Chrome 56+ or
+        Microsoft Edge 79+.
       </p>
     </form>
 
     <form id="form-welcome" class="form">
       <header class="form__header">
-        <h1 class="form__title form__title--gradient">Setup AIRMX Pro</h1>
-        <p class="form__description">Connect your AIRMX Pro to the internet</p>
+        <h1 class="form__title form__title--gradient">
+          Setup AIRMX Pro
+        </h1>
+        <p class="form__description">
+          Connect your AIRMX Pro to the internet
+        </p>
       </header>
 
       <p class="form__text">
-        As you may know, the AIRMX servers are no longer available. During setup, the device will
-        send a registration request to the manufacturer's API endpoint to verify its identity. You must set up a
+        As you may know, the AIRMX servers are no longer available. During
+        setup, the device will send a registration request to the
+        manufacturer's API endpoint to verify its identity. You must set up a
         mock API server to complete the process. Click here for instructions.
       </p>
 
@@ -46,13 +53,17 @@
 
     <form id="form-wifi-credentials" class="form">
       <header class="form__header">
-        <h1 class="form__title">Configure Wi-Fi Credentials</h1>
-        <p class="form__description">Step 1 of 3</p>
+        <h1 class="form__title">
+          Configure Wi-Fi Credentials
+        </h1>
+        <p class="form__description">
+          Step 1 of 3
+        </p>
       </header>
 
       <p class="form__text">
-        First, connect the machine to the internet using the Wi-Fi credentials. Note that the device may only
-        support a 2.4 GHz network.
+        First, connect the machine to the internet using the Wi-Fi
+        credentials. Note that the device may only support a 2.4 GHz network.
       </p>
 
       <input type="text" id="ssid" class="input" placeholder="SSID" />
@@ -72,8 +83,12 @@
 
     <form id="form-pairing-activation" class="form">
       <header class="form__header">
-        <h1 class="form__title">Activate Paring Mode</h1>
-        <p class="form__description">Step 2 of 3</p>
+        <h1 class="form__title">
+          Activate Paring Mode
+        </h1>
+        <p class="form__description">
+          Step 2 of 3
+        </p>
       </header>
 
       <p class="form__text">
@@ -102,11 +117,16 @@
 
     <form id="form-communication" class="form">
       <header class="form__header">
-        <h1 class="form__title">Communicating with Device</h1>
-        <p class="form__description">Step 3 of 3</p>
+        <h1 class="form__title">
+          Communicating with Device
+        </h1>
+        <p class="form__description">
+          Step 3 of 3
+        </p>
       </header>
       <p class="form__text">
-        One more thing, let's choose the AIRMX Pro device from the Bluetooth scanning list.
+        One more thing, let's choose the AIRMX Pro device from the Bluetooth
+        scanning list.
       </p>
       <p class="form__text retry-message">
         👀 The list has been dismissed.
@@ -118,14 +138,18 @@
     <form id="form-result-success" class="form">
       <header class="form__header">
         <img src="assets/indicator-success.png" class="form__indicator" />
-        <h1 class="form__title">Congratulations! Your device has been successfully set up.</h1>
+        <h1 class="form__title">
+          Congratulations! Your device has been successfully set up.
+        </h1>
       </header>
       <p class="form__text">
-        Here is your device key. Please copy and save it in a safe place. You may need to integrate your device
-        with another platform to control or monitor it remotely.
+        Here is your device key. Please copy and save it in a safe place.
+        You may need to integrate your device with another platform to control
+        or monitor it remotely.
       </p>
       <p class="form__text">
-        If you lose it, don't worry. You can reset and re-pair your device on this page at any time.
+        If you lose it, don't worry. You can reset and re-pair your device
+        on this page at any time.
       </p>
       <div class="input-group" data-key></div>
       <p data-alert></p>
@@ -134,7 +158,9 @@
     <form id="form-result-failure" class="form">
       <header class="form__header">
         <img src="assets/indicator-failure.png" class="form__indicator" />
-        <h1 class="form__title">Oops! Something went wrong.</h1>
+        <h1 class="form__title">
+          Oops! Something went wrong.
+        </h1>
       </header>
       <p class="form__text">
         Time's up. The device didn't respond. Here are some tips: Please
