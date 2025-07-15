@@ -1,26 +1,182 @@
+<!DOCTYPE html>
 <html>
-    <head>
-        <title>Setup AIRMX device</title>
-        <script defer src="main.mjs"></script>
-    </head>
-    <body>
-        <p id="unsupported-message" style="display: none;">
-            Your browser does not support the Web Bluetooth API. Please switch to Google Chrome and try again.
-        </p>
+<head>
+  <title>Setup AIRMX device</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script defer src="main.mjs"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap" rel="stylesheet">
+  <link href="app.css" rel="stylesheet">
+</head>
+<body>
+  <header class="page__header">
+    <svg xmlns="http://www.w3.org/2000/svg" width="158" height="28" fill="none">
+      <path fill="#fff" d="m134.916 20-2.395-4.258h-.085l-1.704-1.734v-.049L127.078 8h2.973l2.423 4.478h.076l1.732 1.498v.048L138.003 20h-3.087Zm-7.913 0 3.729-5.976v-.048l1.704-1.498h.085L134.935 8h2.992l-3.645 5.96v.048l-1.732 1.734h-.076L130.06 20h-3.057ZM113.998 20V8h1.745l3.218 4.844h.078L122.257 8h1.745v12h-2.506v-4.958l.039-2.23h-.087l-2.087 3.264h-.722l-2.087-3.265h-.087l.039 2.231V20h-2.506ZM103.058 15.653V13.73h2.346c.405 0 .765-.076 1.079-.228.321-.152.573-.366.756-.643.183-.277.275-.597.275-.96 0-.565-.21-1.007-.628-1.327-.412-.32-.939-.48-1.58-.48h-2.248V8h2.66c.831 0 1.583.141 2.257.423.68.283 1.22.692 1.619 1.23.399.537.599 1.194.599 1.97 0 .754-.21 1.435-.628 2.043-.412.608-1.004 1.091-1.776 1.45-.772.357-1.688.537-2.748.537h-1.983ZM100.998 20V8h2.708v12h-2.708Zm6.938 0-2.895-4.681 2.021-1.384L110.998 20h-3.062ZM92.001 20V8h2.993v12h-2.993Zm-3.003 0v-2.035h9V20h-9Zm0-9.965V8h9v2.035h-9ZM74.998 20l4.15-12h2.698l4.152 12h-2.784l-.985-3.216-.21-.887-1.483-5.088h-.077l-1.482 5.088-.21.887L77.78 20h-2.783Zm2.582-2.605v-1.962h5.835v1.962H77.58ZM56.498 20V8h1.905l4.242 6.334.733 1.197h.078l-.078-2.402V8h2.62v12h-1.916l-4.222-6.407-.733-1.246h-.059l.049 2.508V20h-2.62ZM44.998 20.002v-12h8.5v2.093h-5.654v2.808h4.731v2.036h-4.73v2.971h5.653v2.092h-8.5ZM35.152 15.859v-2.076h2.088a2.38 2.38 0 0 0 1.087-.236 1.792 1.792 0 0 0 1.001-1.637c0-.559-.2-1.001-.6-1.327-.395-.325-.925-.488-1.593-.488h-1.983V8.002h2.164c.954 0 1.78.158 2.48.473.698.314 1.239.76 1.62 1.335.388.575.582 1.25.582 2.027 0 .792-.194 1.492-.582 2.1-.388.603-.931 1.075-1.63 1.417-.693.336-1.497.505-2.412.505h-2.222Zm-2.154 4.143v-12h2.707v12h-2.707ZM24.988 20c-1.058 0-1.96-.236-2.708-.71-.742-.472-1.309-1.154-1.702-2.047-.387-.898-.58-1.981-.58-3.251 0-1.27.193-2.35.58-3.243.393-.892.96-1.572 1.702-2.04.741-.473 1.644-.709 2.708-.709 1.05 0 1.95.236 2.698.71.748.467 1.319 1.15 1.712 2.047.4.892.6 1.97.6 3.235 0 1.27-.197 2.353-.59 3.251-.394.893-.964 1.575-1.712 2.048-.748.473-1.65.709-2.708.709Zm0-2.08c.522 0 .96-.154 1.315-.462.355-.308.622-.754.803-1.338.187-.585.28-1.294.28-2.128-.006-.834-.103-1.54-.29-2.12-.187-.584-.46-1.027-.822-1.33-.355-.308-.783-.462-1.286-.462-.51 0-.941.156-1.296.47-.348.308-.616.754-.803 1.338-.187.58-.28 1.28-.28 2.104 0 .823.093 1.527.28 2.112.194.584.468 1.033.822 1.346.355.314.78.47 1.277.47Z"/>
+    </svg>
+  </header>
+  <main class="container">
+    <form id="form-unsupported" class="form">
+      <p class="form__text">
+        Oops! Your browser doesn't support the Web Bluetooth API. To set up
+        your AIRMX Pro, please consider switching to Google Chrome 56+ or
+        Microsoft Edge 79+.
+      </p>
+    </form>
 
-        <main>
-            <h1>Setup AIRMX Pro</h1>
-            <div>
-                <input type="text" id="ssid" placeholder="SSID" />
-            </div>
-            <div>
-                <input type="password" id="password" placeholder="Password" />
-            </div>
-            <div>
-                <button id="connect" type="button" onclick="connect()">
-                    Connect
-                </button>
-            </div>
-        </main>
-    </body>
+    <form id="form-welcome" class="form">
+      <header class="form__header">
+        <h1 class="form__title form__title--gradient">
+          Setup AIRMX Pro
+        </h1>
+        <p class="form__description">
+          Connect your AIRMX Pro to the internet
+        </p>
+      </header>
+
+      <p class="form__text">
+        As you may know, the AIRMX servers are no longer available. During
+        setup, the device will send a registration request to the
+        manufacturer's API endpoint to verify its identity. You must set up a
+        mock API server to complete the process. Click here for instructions.
+      </p>
+
+      <footer class="form__footer">
+        <button type="submit" class="button">
+          GET STARTED
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="#fafafa" class="button__icon">
+            <path d="M11.131 8.75H2v-1.5h9.131l-4.2-4.2L8 2l6 6-6 6-1.069-1.05 4.2-4.2Z" />
+          </svg>
+        </button>
+      </footer>
+    </form>
+
+    <form id="form-wifi-credentials" class="form">
+      <header class="form__header">
+        <h1 class="form__title">
+          Configure Wi-Fi Credentials
+        </h1>
+        <p class="form__description">
+          Step 1 of 3
+        </p>
+      </header>
+
+      <p class="form__text">
+        First, connect the machine to the internet using the Wi-Fi
+        credentials. Note that the device may only support a 2.4 GHz network.
+      </p>
+
+      <input type="text" id="ssid" class="input" placeholder="SSID" />
+      <input type="password" id="password" class="input" placeholder="Password" />
+
+      <p data-alert></p>
+
+      <footer class="form__footer">
+        <button type="submit" class="button">
+          NEXT
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="#fafafa" class="button__icon">
+            <path d="M11.131 8.75H2v-1.5h9.131l-4.2-4.2L8 2l6 6-6 6-1.069-1.05 4.2-4.2Z" />
+          </svg>
+        </button>
+      </footer>
+    </form>
+
+    <form id="form-pairing-activation" class="form">
+      <header class="form__header">
+        <h1 class="form__title">
+          Activate Paring Mode
+        </h1>
+        <p class="form__description">
+          Step 2 of 3
+        </p>
+      </header>
+
+      <p class="form__text">
+        We're almost there! To activate pairing mode, press and hold the AI button
+        <span class="physical-button"><span class="physical-button__ai"></span></span>
+        and the fan speed increase button
+        <span class="physical-button"><span class="physical-button__fan"></span></span>
+        simultaneously for 3 seconds.
+      </p>
+
+      <p class="form__text">
+        Release all the buttons once the green Bluetooth icon
+        <span class="physical-button"><span class="physical-button__b-circle"></span></span>
+        starts flashing.
+      </p>
+
+      <footer class="form__footer">
+        <button type="submit" class="button">
+          I'M READY
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="#fafafa" class="button__icon">
+            <path d="M11.131 8.75H2v-1.5h9.131l-4.2-4.2L8 2l6 6-6 6-1.069-1.05 4.2-4.2Z" />
+          </svg>
+        </button>
+      </footer>
+    </form>
+
+    <form id="form-communication" class="form">
+      <header class="form__header">
+        <h1 class="form__title">
+          Communicating with Device
+        </h1>
+        <p class="form__description">
+          Step 3 of 3
+        </p>
+      </header>
+      <p class="form__text">
+        One more thing, let's choose the AIRMX Pro device from the Bluetooth
+        scanning list.
+      </p>
+      <p class="form__text retry-message">
+        👀 The list has been dismissed.
+        <a href="javascript:void(0)" class="form__link retry-link">Try again?</a>
+      </p>
+      <ol data-slot="progress"></ol>
+    </form>
+
+    <form id="form-result-success" class="form">
+      <header class="form__header">
+        <img src="assets/indicator-success.png" class="form__indicator" />
+        <h1 class="form__title">
+          Congratulations! Your device has been successfully set up.
+        </h1>
+      </header>
+      <p class="form__text">
+        Here is your device key. Please copy and save it in a safe place.
+        You may need to integrate your device with another platform to control
+        or monitor it remotely.
+      </p>
+      <p class="form__text">
+        If you lose it, don't worry. You can reset and re-pair your device
+        on this page at any time.
+      </p>
+      <div class="input-group" data-key></div>
+      <p data-alert></p>
+    </form>
+
+    <form id="form-result-failure" class="form">
+      <header class="form__header">
+        <img src="assets/indicator-failure.png" class="form__indicator" />
+        <h1 class="form__title">
+          Oops! Something went wrong.
+        </h1>
+      </header>
+      <p class="form__text">
+        Time's up. The device didn't respond. Here are some tips: Please
+        confirm that the Wi-Fi credentials are correct and that the access
+        point is a 2.4 GHz network. Also, check to see if the mock server
+        is up and running.
+      </p>
+      <footer class="form__footer">
+        <button type="submit" class="button">
+          RETRY
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="#fafafa" class="button__icon">
+            <path d="M11.131 8.75H2v-1.5h9.131l-4.2-4.2L8 2l6 6-6 6-1.069-1.05 4.2-4.2Z" />
+          </svg>
+        </button>
+      </footer>
+    </form>
+  </main>
+</body>
 </html>
