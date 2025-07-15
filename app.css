@@ -139,7 +139,7 @@ body {
   font-weight: 500;
   font-size: 1.5rem;
   line-height: 1.2;
-  color: var(--title-color);
+  color: var(--color-white);
 }
 
 .form__title--gradient {
