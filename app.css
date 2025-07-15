@@ -88,7 +88,7 @@ fieldset {
 
 body {
   display: grid;
-  grid: max-content max-content 4.5rem / auto;
+  grid: max-content max-content 7.5rem / auto;
   justify-content: center;
   font-family: "Inter", sans-serif;
   color: var(--color-white);
@@ -107,6 +107,7 @@ body {
 .container {
   position: relative;
   margin-block-start: 3rem;
+  margin-inline: 1.25rem;
   grid-row: 2;
   padding: 2rem 1.5rem 3rem;
   background: linear-gradient(324deg, rgba(255, 255, 255, 0), rgba(255, 255, 255, 0.06));
@@ -236,7 +237,6 @@ body {
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 1rem;
   margin-block-start: 2rem;
   padding-inline-end: 0.5rem;
   background-color: var(--color-zinc-900);
@@ -370,7 +370,7 @@ body {
 
 @media (min-width: 768px) {
   body {
-    grid: max-content max-content 4.5rem / 40rem;
+    grid-template-columns: 40rem;
   }
 
   .page__header {
@@ -379,5 +379,6 @@ body {
 
   .container {
     padding: 3rem 4rem 4rem;
+    margin-inline: 0;
   }
 }
