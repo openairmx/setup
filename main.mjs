@@ -246,16 +246,10 @@ class Clock {
 }
 
 class IncomingMessageHandler {
-  #encoder
-
   /** @type {IncomingMessage[]} */
   #bag = []
 
   #messageHandler = null
-
-  constructor() {
-    this.#encoder = new TextEncoder()
-  }
 
   /**
    * @param {DataView} view
