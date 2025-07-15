@@ -227,7 +227,7 @@ class ConfigureWifiCommand extends Command {
   }
 }
 
-class RequestIdentityCommand extends Command {
+class RegisterCommand extends Command {
   get commandId() {
     return 0x16
   }
@@ -573,7 +573,7 @@ class CommunicationForm extends Form {
 
   #handshakeCommand
   #wifiCredentialsCommand
-  #identityCommand
+  #registerCommand
 
   #successForm = null
   #failureForm = null
@@ -608,7 +608,7 @@ class CommunicationForm extends Form {
     this.#setupProgress()
     this.#handshakeCommand = new HandshakeCommand()
     this.#wifiCredentialsCommand = new ConfigureWifiCommand('', '')
-    this.#identityCommand = new RequestIdentityCommand()
+    this.#registerCommand = new RegisterCommand()
     this.#retryMessage = this.form.querySelector(`.${this.#retryMessageClassName}`)
     if (this.#retryMessage) {
       this.#retryLink = this.form.querySelector(`.${this.#retryLinkClassName}`)
@@ -642,7 +642,7 @@ class CommunicationForm extends Form {
     this.#progress = new Progress(el, [
       { id: 'handshake', name: 'Say a hello to the machine' },
       { id: 'wifi', name: 'Send Wi-Fi credentials' },
-      { id: 'identity', name: 'Receive the device\'s identity' }
+      { id: 'register', name: 'Register the device' }
     ])
   }
 
@@ -679,8 +679,8 @@ class CommunicationForm extends Form {
       case this.#wifiCredentialsCommand.commandId:
         this.handleWifiCredentialsMessage(message)
         break
-      case this.#identityCommand.commandId:
-        this.handleIdentityMessage(message)
+      case this.#registerCommand.commandId:
+        this.handleRegisterMessage(message)
         break
       default:
         console.warn(`Unknown command ID: ${message.commandId}`)
@@ -702,16 +702,16 @@ class CommunicationForm extends Form {
    */
   handleWifiCredentialsMessage(message) {
     this.#progress.markAsComplete('wifi')
-    this.#progress.markAsCurrent('identity')
-    this.#handler.dispatch(this.#identityCommand)
+    this.#progress.markAsCurrent('register')
+    this.#handler.dispatch(this.#registerCommand)
   }
 
   /**
    * @param {CompleteMessage} message
    */
-  handleIdentityMessage(message) {
+  handleRegisterMessage(message) {
     this.#countdown.stop()
-    this.#progress.markAsComplete('identity')
+    this.#progress.markAsComplete('register')
     this.#progress.clear()
     this.disconnectIfNeeded()
 
