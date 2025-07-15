@@ -509,11 +509,18 @@ class WifiCredentialsForm extends ProgressibleForm {
     }
   }
 
+  /**
+   * Validate with the IEEE 802.11 standard.
+   *
+   * @param {string} ssid - The Wi-Fi name
+   * @param {string} password - The Password (WPA/WPA2-PSK)
+   */
   validate(ssid, password) {
     if (ssid === '' ) {
       throw new Error('SSID cannot be empty.')
     }
 
+    // The SSID is up to 32 characters
     if (ssid.length > 32) {
       throw new Error('SSID cannot be longer than 32 characters.')
     }
@@ -522,6 +529,7 @@ class WifiCredentialsForm extends ProgressibleForm {
       throw new Error('Password cannot be empty.')
     }
 
+    // The password is between 8 and 63 characters
     if (password.length < 8 || password.length > 63) {
       throw new Error('Password must be between 8 and 63 characters long.')
     }
