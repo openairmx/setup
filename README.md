@@ -1,5 +1,7 @@
 # Set up your AIRMX Pro
 
+![Screenshot of the setup page.](art/screenshot.png)
+
 A device setup page for AIRMX Pro that utilizes the Web Bluetooth API.
 This setup allows users to reconnect the device to the internet now that
 AIRMX has ceased operations.
