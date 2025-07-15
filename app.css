@@ -88,7 +88,7 @@ fieldset {
 
 body {
   display: grid;
-  grid: max-content max-content 7.5rem / auto;
+  grid: max-content max-content 10rem / auto;
   justify-content: center;
   font-family: "Inter", sans-serif;
   color: var(--color-white);
